@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "869633347200",
+    "project_id": "inventario-b125a",
+    "storage_bucket": "inventario-b125a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:869633347200:android:1c50b1c6864dee4463a065",
+        "android_client_info": {
+          "package_name": "com.example.diicsa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBT0RD9D3J7l1zxTOdZO8kxFpxeP4EoGeI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
