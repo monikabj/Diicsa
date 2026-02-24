@@ -11,7 +11,10 @@ const Color azulDiicsa = Color(0xFF1F4E79);
 class DetalleHerramientaScreen extends StatefulWidget {
   final String docId;
 
-  const DetalleHerramientaScreen({super.key, required this.docId});
+  const DetalleHerramientaScreen({
+    super.key,
+    required this.docId,
+  });
 
   @override
   State<DetalleHerramientaScreen> createState() =>
@@ -20,12 +23,18 @@ class DetalleHerramientaScreen extends StatefulWidget {
 
 class _DetalleHerramientaScreenState
     extends State<DetalleHerramientaScreen> {
-  final ImagePicker _picker = ImagePicker();
-  bool cargandoImagen = false;
 
-  Future<void> _seleccionarImagen(ImageSource source) async {
+  final ImagePicker _picker = ImagePicker();
+  final PageController _pageController = PageController();
+
+  bool cargandoImagen = false;
+  int paginaActual = 0;
+
+  // ================= AGREGAR IMAGEN =================
+  Future<void> _agregarImagen(ImageSource source) async {
     final XFile? imagen =
         await _picker.pickImage(source: source, imageQuality: 60);
+
     if (imagen == null) return;
 
     setState(() => cargandoImagen = true);
@@ -33,16 +42,35 @@ class _DetalleHerramientaScreenState
     final bytes = await imagen.readAsBytes();
     final base64Img = base64Encode(bytes);
 
-    await FirebaseFirestore.instance
+    final docRef = FirebaseFirestore.instance
         .collection('herramientas')
-        .doc(widget.docId)
-        .update({
-      'imagenesBase64': [base64Img],
+        .doc(widget.docId);
+
+    final snap = await docRef.get();
+    final data = snap.data() as Map<String, dynamic>;
+
+    List imagenes = List.from(data['imagenesBase64'] ?? []);
+
+    if (imagenes.length >= 3) {
+      setState(() => cargandoImagen = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Máximo 3 imágenes por herramienta'),
+        ),
+      );
+      return;
+    }
+
+    imagenes.add(base64Img);
+
+    await docRef.update({
+      'imagenesBase64': imagenes,
     });
 
     setState(() => cargandoImagen = false);
   }
 
+  // ================= OPCIONES =================
   void _opcionesImagen() {
     showModalBottomSheet(
       context: context,
@@ -55,7 +83,7 @@ class _DetalleHerramientaScreenState
               title: const Text('Tomar foto'),
               onTap: () {
                 Navigator.pop(context);
-                _seleccionarImagen(ImageSource.camera);
+                _agregarImagen(ImageSource.camera);
               },
             ),
             ListTile(
@@ -63,7 +91,7 @@ class _DetalleHerramientaScreenState
               title: const Text('Elegir de galería'),
               onTap: () {
                 Navigator.pop(context);
-                _seleccionarImagen(ImageSource.gallery);
+                _agregarImagen(ImageSource.gallery);
               },
             ),
           ],
@@ -72,48 +100,33 @@ class _DetalleHerramientaScreenState
     );
   }
 
+  // ================= ELIMINAR IMAGEN =================
+  Future<void> _eliminarImagen(int index, List imagenes) async {
+    imagenes.removeAt(index);
 
-  Future<void> _eliminarFoto() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Eliminar foto'),
-        content: const Text('¿Seguro que deseas eliminar la imagen?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-            ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
+    await FirebaseFirestore.instance
+        .collection('herramientas')
+        .doc(widget.docId)
+        .update({
+      'imagenesBase64': imagenes,
+    });
 
-    if (ok == true) {
-      await FirebaseFirestore.instance
-          .collection('herramientas')
-          .doc(widget.docId)
-          .update({
-        'imagenesBase64': [],
-      });
+    if (paginaActual >= imagenes.length && paginaActual > 0) {
+      paginaActual--;
+      _pageController.jumpToPage(paginaActual);
     }
+
+    setState(() {});
   }
 
-
+  // ================= ELIMINAR HERRAMIENTA =================
   Future<void> _eliminarHerramienta() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         title: const Text('Eliminar herramienta'),
-        content:
-            const Text('¿Seguro que deseas eliminar esta herramienta?'),
+        content: const Text(
+            '¿Seguro que deseas eliminar esta herramienta?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -142,7 +155,13 @@ class _DetalleHerramientaScreenState
     }
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -157,63 +176,142 @@ class _DetalleHerramientaScreenState
             .snapshots(),
         builder: (context, snapshot) {
           if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+                child: CircularProgressIndicator());
           }
 
           final data =
               snapshot.data!.data() as Map<String, dynamic>;
-          final imagenes = data['imagenesBase64'];
+
+          List imagenes = List.from(data['imagenesBase64'] ?? []);
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
 
-
+              // ================= IMÁGENES =================
               Card(
-                elevation: 2,
+                elevation: 3,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
+
                     const SizedBox(height: 12),
-                    imagenes != null &&
-                            imagenes is List &&
-                            imagenes.isNotEmpty
-                        ? Image.memory(
-                            base64Decode(imagenes.first),
-                            height: 180,
-                            fit: BoxFit.contain,
-                          )
-                        : const Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Icon(
-                              Icons.handyman,
-                              size: 80,
-                              color: Colors.grey,
+
+                    if (imagenes.isNotEmpty)
+                      Column(
+                        children: [
+
+                          SizedBox(
+                            height: 300,
+                            child: PageView.builder(
+                              controller: _pageController,
+                              itemCount: imagenes.length,
+                              onPageChanged: (index) {
+                                setState(() => paginaActual = index);
+                              },
+                              itemBuilder: (_, index) {
+                                return Center(
+                                  child: Image.memory(
+                                    base64Decode(imagenes[index]),
+                                    height: 260,
+                                    fit: BoxFit.contain,
+                                  ),
+                                );
+                              },
                             ),
                           ),
 
+                          const SizedBox(height: 8),
 
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.photo_camera),
-                          onPressed: cargandoImagen
-                              ? null
-                              : _opcionesImagen,
-                        ),
-                        if (imagenes != null &&
-                            imagenes is List &&
-                            imagenes.isNotEmpty)
-                          IconButton(
-                            icon: const Icon(Icons.delete,
-                                color: Colors.red),
-                            onPressed: _eliminarFoto,
+                          Text(
+                            '${paginaActual + 1} / ${imagenes.length}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600),
                           ),
-                      ],
-                    ),
+
+                          const SizedBox(height: 10),
+
+                          SizedBox(
+                            height: 70,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: imagenes.length,
+                              itemBuilder: (_, index) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    _pageController.jumpToPage(index);
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: paginaActual == index
+                                            ? azulDiicsa
+                                            : Colors.grey.shade300,
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Image.memory(
+                                      base64Decode(imagenes[index]),
+                                      width: 60,
+                                      height: 60,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.add_a_photo),
+                                onPressed: cargandoImagen
+                                    ? null
+                                    : _opcionesImagen,
+                              ),
+                              const SizedBox(width: 16),
+                              IconButton(
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                                onPressed: () =>
+                                    _eliminarImagen(
+                                        paginaActual, imagenes),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.handyman,
+                              size: 120,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 12),
+                            IconButton(
+                              icon:
+                                  const Icon(Icons.add_a_photo),
+                              onPressed: _opcionesImagen,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
@@ -232,7 +330,9 @@ class _DetalleHerramientaScreenState
               Text('Marca: ${data['marca']}'),
               Text('Organizador: ${data['organizador']}'),
               Text('Sección: ${data['seccion']}'),
+
               const SizedBox(height: 16),
+
               Text(
                 'Existencia: ${data['cantidadDisponible']}',
                 style: const TextStyle(
@@ -242,18 +342,18 @@ class _DetalleHerramientaScreenState
 
               const SizedBox(height: 28),
 
-
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: azulDiicsa,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
+                  minimumSize:
+                      const Size.fromHeight(48),
                 ),
                 icon: const Icon(Icons.edit),
                 label: const Text(
                   'Editar herramienta',
-                  style:
-                      TextStyle(fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold),
                 ),
                 onPressed: () {
                   Navigator.push(
@@ -299,7 +399,7 @@ class _DetalleHerramientaScreenState
                       icon:
                           const Icon(Icons.arrow_downward),
                       label:
-                          const Text('Devolucion'),
+                          const Text('Devolución'),
                       onPressed: () {
                         Navigator.push(
                           context,
@@ -321,7 +421,7 @@ class _DetalleHerramientaScreenState
               const SizedBox(height: 24),
               const Divider(),
               const SizedBox(height: 12),
-              
+
               TextButton.icon(
                 icon: const Icon(Icons.delete,
                     color: Colors.red),

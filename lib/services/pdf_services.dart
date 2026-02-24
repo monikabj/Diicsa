@@ -27,7 +27,7 @@ class PdfService {
 
     final List<List<String>> tablaData = [];
 
-    // 🔥 PREPARAR DATOS ANTES DEL PDF
+  
     for (final doc in querySnapshot.docs) {
       final d = doc.data() as Map<String, dynamic>;
 
@@ -66,7 +66,6 @@ class PdfService {
 
     final pdf = pw.Document();
 
-    // 🔥 LOGO
     final ByteData logoBytes =
         await rootBundle.load('assets/images/logo-diicsa.png');
     final Uint8List logoUint8List =
@@ -85,7 +84,6 @@ class PdfService {
         pageFormat: PdfPageFormat.a4.landscape,
         build: (context) => [
 
-          // ================= ENCABEZADO =================
           pw.Row(
             mainAxisAlignment:
                 pw.MainAxisAlignment.spaceBetween,
@@ -110,7 +108,6 @@ class PdfService {
 
           pw.SizedBox(height: 20),
 
-          // ================= TABLA =================
           pw.Table.fromTextArray(
             headerStyle: pw.TextStyle(
               fontWeight: pw.FontWeight.bold,
@@ -134,7 +131,6 @@ class PdfService {
 
           pw.SizedBox(height: 20),
 
-          // 🔥 RESUMEN ELIMINADO
         ],
       ),
     );

@@ -20,9 +20,12 @@ class DetalleProductoScreen extends StatefulWidget {
 
 class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
   final ImagePicker _picker = ImagePicker();
+  final PageController _pageController = PageController();
+
   bool cargandoImagen = false;
+  int paginaActual = 0;
 
-
+  // ================== SELECCIONAR IMAGEN ==================
   Future<void> _seleccionarImagen(ImageSource source) async {
     final XFile? imagen =
         await _picker.pickImage(source: source, imageQuality: 60);
@@ -33,14 +36,33 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
     final bytes = await imagen.readAsBytes();
     final base64Image = base64Encode(bytes);
 
-    await FirebaseFirestore.instance
+    final docRef = FirebaseFirestore.instance
         .collection('productos')
-        .doc(widget.docId)
-        .update({'imagenBase64': base64Image});
+        .doc(widget.docId);
 
-    if (mounted) setState(() => cargandoImagen = false);
+    final snap = await docRef.get();
+    final data = snap.data() as Map<String, dynamic>;
+
+    List imagenes = List.from(data['imagenesBase64'] ?? []);
+
+    if (imagenes.length >= 3) {
+      setState(() => cargandoImagen = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Máximo 3 imágenes por producto'),
+        ),
+      );
+      return;
+    }
+
+    imagenes.add(base64Image);
+
+    await docRef.update({'imagenesBase64': imagenes});
+
+    setState(() => cargandoImagen = false);
   }
 
+  // ================== OPCIONES ==================
   void _opcionesImagen() {
     showModalBottomSheet(
       context: context,
@@ -70,14 +92,24 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
     );
   }
 
-  Future<void> _eliminarImagen() async {
+  // ================== ELIMINAR IMAGEN ==================
+  Future<void> _eliminarImagen(int index, List imagenes) async {
+    imagenes.removeAt(index);
+
     await FirebaseFirestore.instance
         .collection('productos')
         .doc(widget.docId)
-        .update({'imagenBase64': FieldValue.delete()});
+        .update({'imagenesBase64': imagenes});
+
+    if (paginaActual >= imagenes.length && paginaActual > 0) {
+      paginaActual--;
+      _pageController.jumpToPage(paginaActual);
+    }
+
+    setState(() {});
   }
 
-
+  // ================== ELIMINAR PRODUCTO ==================
   Future<void> _eliminarProducto() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -111,7 +143,13 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
 
+  // ================== UI ==================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,73 +160,151 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
             .doc(widget.docId)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState ==
-              ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData || !snapshot.data!.exists) {
+          if (!snapshot.data!.exists) {
             return const Center(
-              child: Text(
-                'Este producto ya fue eliminado',
-                style: TextStyle(fontSize: 16),
-              ),
+              child: Text('Este producto ya fue eliminado'),
             );
           }
 
           final data =
               snapshot.data!.data() as Map<String, dynamic>;
-          final imagen = data['imagenBase64'];
+
+          List imagenes = List.from(data['imagenesBase64'] ?? []);
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+
+              // ================== IMÁGENES ==================
               Card(
-                elevation: 2,
+                elevation: 3,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Column(
                   children: [
                     const SizedBox(height: 12),
-                    imagen != null
-                        ? Image.memory(
-                            base64Decode(imagen),
-                            height: 180,
-                            fit: BoxFit.contain,
-                          )
-                        : const Padding(
-                            padding: EdgeInsets.all(32),
-                            child: Icon(
-                              Icons.image_not_supported,
-                              size: 80,
-                              color: Colors.grey,
+
+                    if (imagenes.isNotEmpty)
+                      Column(
+                        children: [
+
+                          // ===== Imagen grande =====
+                          SizedBox(
+                            height: 300,
+                            child: PageView.builder(
+                              controller: _pageController,
+                              itemCount: imagenes.length,
+                              onPageChanged: (index) {
+                                setState(() => paginaActual = index);
+                              },
+                              itemBuilder: (_, index) {
+                                return Center(
+                                  child: Image.memory(
+                                    base64Decode(imagenes[index]),
+                                    height: 260,
+                                    fit: BoxFit.contain,
+                                  ),
+                                );
+                              },
                             ),
                           ),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        IconButton(
-                          tooltip: 'Cambiar imagen',
-                          icon: const Icon(Icons.photo_camera),
-                          onPressed: _opcionesImagen,
-                        ),
-                        if (imagen != null)
-                          IconButton(
-                            tooltip: 'Eliminar imagen',
-                            icon: const Icon(Icons.delete,
-                                color: Colors.red),
-                            onPressed: _eliminarImagen,
+
+                          const SizedBox(height: 8),
+
+                          Text(
+                            '${paginaActual + 1} / ${imagenes.length}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600),
                           ),
-                      ],
-                    ),
+
+                          const SizedBox(height: 10),
+
+                          // ===== Miniaturas =====
+                          SizedBox(
+                            height: 70,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: imagenes.length,
+                              itemBuilder: (_, index) {
+                                return GestureDetector(
+                                  onTap: () {
+                                    _pageController.jumpToPage(index);
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 6),
+                                    decoration: BoxDecoration(
+                                      border: Border.all(
+                                        color: paginaActual == index
+                                            ? azulDiicsa
+                                            : Colors.grey.shade300,
+                                        width: 2,
+                                      ),
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Image.memory(
+                                      base64Decode(imagenes[index]),
+                                      width: 60,
+                                      height: 60,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+
+                          const SizedBox(height: 10),
+
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.add_a_photo),
+                                onPressed:
+                                    cargandoImagen ? null : _opcionesImagen,
+                              ),
+                              const SizedBox(width: 16),
+                              IconButton(
+                                icon: const Icon(Icons.delete,
+                                    color: Colors.red),
+                                onPressed: () =>
+                                    _eliminarImagen(paginaActual, imagenes),
+                              ),
+                            ],
+                          ),
+                        ],
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          children: [
+                            const Icon(
+                              Icons.image_not_supported,
+                              size: 120,
+                              color: Colors.grey,
+                            ),
+                            const SizedBox(height: 12),
+                            IconButton(
+                              icon: const Icon(Icons.add_a_photo),
+                              onPressed: _opcionesImagen,
+                            ),
+                          ],
+                        ),
+                      ),
+
+                    const SizedBox(height: 12),
                   ],
                 ),
               ),
 
               const SizedBox(height: 24),
+
               Text(
                 data['codigoInterno'],
                 style: const TextStyle(
@@ -209,6 +325,7 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
                   fontWeight: FontWeight.w500,
                 ),
               ),
+    
 
               const SizedBox(height: 32),
 
@@ -279,8 +396,7 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
               const SizedBox(height: 16),
 
               TextButton.icon(
-                icon:
-                    const Icon(Icons.delete, color: Colors.red),
+                icon: const Icon(Icons.delete, color: Colors.red),
                 label: const Text(
                   'Eliminar producto',
                   style: TextStyle(color: Colors.red),

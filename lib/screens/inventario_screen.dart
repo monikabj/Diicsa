@@ -78,12 +78,16 @@ class _InventarioScreenState extends State<InventarioScreen> {
               data['anaquel'].toString().toLowerCase();
           final seccion =
               data['seccion'].toString().toLowerCase();
+              final numeroParte =
+              (data['numeroParte'] ?? '').toString().toLowerCase();
 
           return codigo.contains(filtro) ||
               desc.contains(filtro) ||
               marca.contains(filtro) ||
               anaquel.contains(filtro) ||
-              seccion.contains(filtro);
+              seccion.contains(filtro) ||
+              numeroParte.contains(filtro);
+
         }).toList();
 
         if (docs.isEmpty) {

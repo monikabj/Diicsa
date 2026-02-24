@@ -49,9 +49,11 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     super.dispose();
   }
 
+  // ================= UI PRINCIPAL =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: azulDiicsa,
         title: Column(
@@ -85,13 +87,13 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
           controller: _tabController,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
+          indicatorColor: Colors.white,
           tabs: const [
             Tab(text: 'Inventario'),
             Tab(text: 'Herramientas'),
           ],
         ),
       ),
-
       body: TabBarView(
         controller: _tabController,
         children: [
@@ -114,6 +116,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     );
   }
 
+  // ================= BUSCADOR =================
   Widget _buscador() {
     return Padding(
       padding: const EdgeInsets.all(12),
@@ -130,6 +133,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     );
   }
 
+  // ================= PRODUCTOS =================
   Widget _inventarioProductos() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -137,6 +141,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
           .orderBy('codigoInterno')
           .snapshots(),
       builder: (context, snapshot) {
+
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -145,12 +150,12 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
           final d = doc.data() as Map<String, dynamic>;
 
           final texto = (
-            '${d['codigoInterno']} '
+            '${d['codigoInterno'] ?? ''} '
             '${d['numeroParte'] ?? ''} '
-            '${d['descripcion']} '
+            '${d['descripcion'] ?? ''} '
             '${d['marca'] ?? ''} '
-            '${d['segmento'] ?? ''} '
-            '${d['seccion']}'
+            '${d['anaquel'] ?? ''} '
+            '${d['seccion'] ?? ''}'
           ).toLowerCase();
 
           return texto.contains(filtro);
@@ -163,15 +168,13 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
         return ListView.builder(
           itemCount: docs.length,
           itemBuilder: (_, i) {
-            final doc = docs[i];
-            final d = doc.data() as Map<String, dynamic>;
+            final d = docs[i].data() as Map<String, dynamic>;
             final existencia = d['cantidadDisponible'] ?? 0;
 
             return Card(
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: ListTile(
-                leading: _miniaturaImagen(d),
+                leading: _miniatura(d),
                 title: Text(
                   d['codigoInterno'] ?? '',
                   style: const TextStyle(fontWeight: FontWeight.bold),
@@ -181,18 +184,19 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
                   children: [
                     Text(d['descripcion'] ?? ''),
                     Text('N° Parte: ${d['numeroParte'] ?? '—'}'),
-                    Text('Marca: ${d['marca'] ?? '—'}'),
+                    Text(
+                      'Ubicación: Anaquel ${d['anaquel'] ?? '—'} - ${d['seccion'] ?? '—'}',
+                    ),
                   ],
                 ),
                 trailing: Text(
                   existencia.toString(),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color:
-                        existencia <= 0 ? Colors.red : Colors.black,
+                    color: existencia <= 0 ? Colors.red : Colors.black,
                   ),
                 ),
-                onTap: () => _detalleProducto(context, d),
+                onTap: () => _detalleConCarrusel(context, d),
               ),
             );
           },
@@ -201,6 +205,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     );
   }
 
+  // ================= HERRAMIENTAS =================
   Widget _inventarioHerramientas() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -208,6 +213,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
           .orderBy('codigoInterno')
           .snapshots(),
       builder: (context, snapshot) {
+
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -216,10 +222,12 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
           final d = doc.data() as Map<String, dynamic>;
 
           final texto = (
-            '${d['codigoInterno']} '
-            '${d['descripcion']} '
-            '${d['marca']} '
-            '${d['seccion']}'
+            '${d['codigoInterno'] ?? ''} '
+            '${d['numeroParte'] ?? ''} '
+            '${d['descripcion'] ?? ''} '
+            '${d['marca'] ?? ''} '
+            '${d['organizador'] ?? ''} '
+            '${d['seccion'] ?? ''}'
           ).toLowerCase();
 
           return texto.contains(filtro);
@@ -233,40 +241,34 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
           itemCount: docs.length,
           itemBuilder: (_, i) {
             final d = docs[i].data() as Map<String, dynamic>;
-            final imgs = d['imagenesBase64'];
             final existencia = d['cantidadDisponible'] ?? 0;
 
             return Card(
-              margin:
-                  const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: ListTile(
-                leading: imgs != null &&
-                        imgs is List &&
-                        imgs.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Image.memory(
-                          base64Decode(imgs.first),
-                          width: 48,
-                          height: 48,
-                          fit: BoxFit.cover,
-                        ),
-                      )
-                    : const Icon(Icons.handyman, color: azulDiicsa),
+                leading: _miniatura(d),
                 title: Text(
                   d['codigoInterno'] ?? '',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Text(d['descripcion'] ?? ''),
+                subtitle: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(d['descripcion'] ?? ''),
+                    Text('N° Parte: ${d['numeroParte'] ?? '—'}'),
+                    Text(
+                      'Ubicación: ${d['organizador'] ?? '—'} - ${d['seccion'] ?? '—'}',
+                    ),
+                  ],
+                ),
                 trailing: Text(
                   existencia.toString(),
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color:
-                        existencia <= 0 ? Colors.red : Colors.black,
+                    color: existencia <= 0 ? Colors.red : Colors.black,
                   ),
                 ),
-                onTap: () => _detalleHerramienta(context, d),
+                onTap: () => _detalleConCarrusel(context, d),
               ),
             );
           },
@@ -275,14 +277,15 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     );
   }
 
-  Widget _miniaturaImagen(Map<String, dynamic> data) {
-    final img = data['imagenBase64'];
+  // ================= MINIATURA =================
+  Widget _miniatura(Map<String, dynamic> d) {
+    final List imagenes = d['imagenesBase64'] ?? [];
 
-    if (img != null && img.toString().isNotEmpty) {
+    if (imagenes.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: Image.memory(
-          base64Decode(img),
+          base64Decode(imagenes.first),
           width: 48,
           height: 48,
           fit: BoxFit.cover,
@@ -293,96 +296,115 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     return const Icon(Icons.image_not_supported);
   }
 
-  void _detalleProducto(BuildContext context, Map<String, dynamic> d) {
+  // ================= DIÁLOGO =================
+  void _detalleConCarrusel(BuildContext context, Map<String, dynamic> d) {
+    final List imagenes = d['imagenesBase64'] ?? [];
+    final PageController controller = PageController();
+    int paginaActual = 0;
+
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
-        title: Text(d['codigoInterno'] ?? ''),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (d['imagenBase64'] != null &&
-                  d['imagenBase64'].toString().isNotEmpty)
-                Image.memory(
-                  base64Decode(d['imagenBase64']),
-                  height: 200,
-                  fit: BoxFit.contain,
-                ),
-              const SizedBox(height: 12),
-              Text('Descripción: ${d['descripcion'] ?? ''}'),
-              Text('Número de parte: ${d['numeroParte'] ?? '—'}'),
-              Text('Marca: ${d['marca'] ?? '—'}'),
-              const SizedBox(height: 8),
-              Text(
-                'Ubicación: Anaquel ${d['anaquel']} - ${d['seccion']}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
+      builder: (_) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Dialog(
+              backgroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
               ),
-              Text(
-                'Existencia: ${d['cantidadDisponible'] ?? 0}',
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cerrar'),
-          ),
-        ],
-      ),
-    );
-  }
+              child: SizedBox(
+                width: 420,
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      children: [
 
-void _detalleHerramienta(BuildContext context, Map<String, dynamic> d) {
-  final imgs = d['imagenesBase64'];
+                        Text(
+                          d['codigoInterno'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
 
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: Text(d['codigoInterno'] ?? ''),
-      content: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            
-            if (imgs != null && imgs is List && imgs.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: Center(
-                  child: Image.memory(
-                    base64Decode(imgs.first),
-                    height: 200,
-                    fit: BoxFit.contain,
+                        const SizedBox(height: 20),
+
+                        if (imagenes.isNotEmpty)
+                          SizedBox(
+                            height: 260,
+                            child: PageView.builder(
+                              controller: controller,
+                              itemCount: imagenes.length,
+                              onPageChanged: (index) {
+                                setStateDialog(() {
+                                  paginaActual = index;
+                                });
+                              },
+                              itemBuilder: (_, index) {
+                                return Image.memory(
+                                  base64Decode(imagenes[index]),
+                                  fit: BoxFit.contain,
+                                );
+                              },
+                            ),
+                          )
+                        else
+                          const SizedBox(
+                            height: 260,
+                            child: Center(
+                              child: Icon(
+                                Icons.image_not_supported,
+                                size: 100,
+                              ),
+                            ),
+                          ),
+
+                        const SizedBox(height: 10),
+
+                        Text('Descripción: ${d['descripcion'] ?? ''}'),
+                        Text('N° Parte: ${d['numeroParte'] ?? '—'}'),
+                        Text('Marca: ${d['marca'] ?? ''}'),
+
+                        if (d.containsKey('anaquel'))
+                          Text(
+                            'Ubicación: Anaquel ${d['anaquel'] ?? '—'} - ${d['seccion'] ?? '—'}',
+                          ),
+
+                        if (d.containsKey('organizador'))
+                          Text(
+                            'Ubicación: ${d['organizador'] ?? '—'} - ${d['seccion'] ?? '—'}',
+                          ),
+
+                        const SizedBox(height: 20),
+
+                        Text(
+                          'Existencia: ${d['cantidadDisponible'] ?? 0}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+
+                        const SizedBox(height: 20),
+
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: azulDiicsa,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size.fromHeight(45),
+                          ),
+                          onPressed: () => Navigator.pop(context),
+                          child: const Text('Cerrar'),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-
-            Text('Descripción: ${d['descripcion'] ?? ''}'),
-            Text('Marca: ${d['marca'] ?? ''}'),
-
-            const SizedBox(height: 8),
-
-            Text(
-              'Ubicación: ${d['organizador']} - ${d['seccion']}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-
-            Text(
-              'Existencia: ${d['cantidadDisponible'] ?? 0}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cerrar'),
-        ),
-      ],
-    ),
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 }
