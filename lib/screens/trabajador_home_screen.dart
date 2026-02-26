@@ -49,7 +49,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     super.dispose();
   }
 
-  // ================= UI PRINCIPAL =================
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -116,14 +116,13 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     );
   }
 
-  // ================= BUSCADOR =================
   Widget _buscador() {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: TextField(
         decoration: const InputDecoration(
           hintText:
-              'Buscar por código, número de parte, descripción o marca',
+              'Buscar producto',
           prefixIcon: Icon(Icons.search),
         ),
         onChanged: (v) {
@@ -133,7 +132,6 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     );
   }
 
-  // ================= PRODUCTOS =================
   Widget _inventarioProductos() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -179,16 +177,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
                   d['codigoInterno'] ?? '',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(d['descripcion'] ?? ''),
-                    Text('N° Parte: ${d['numeroParte'] ?? '—'}'),
-                    Text(
-                      'Ubicación: Anaquel ${d['anaquel'] ?? '—'} - ${d['seccion'] ?? '—'}',
-                    ),
-                  ],
-                ),
+                subtitle: Text(d['descripcion'] ?? ''),
                 trailing: Text(
                   existencia.toString(),
                   style: TextStyle(
@@ -205,7 +194,6 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     );
   }
 
-  // ================= HERRAMIENTAS =================
   Widget _inventarioHerramientas() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -251,16 +239,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
                   d['codigoInterno'] ?? '',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(d['descripcion'] ?? ''),
-                    Text('N° Parte: ${d['numeroParte'] ?? '—'}'),
-                    Text(
-                      'Ubicación: ${d['organizador'] ?? '—'} - ${d['seccion'] ?? '—'}',
-                    ),
-                  ],
-                ),
+                subtitle: Text(d['descripcion'] ?? ''),
                 trailing: Text(
                   existencia.toString(),
                   style: TextStyle(
@@ -277,7 +256,6 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     );
   }
 
-  // ================= MINIATURA =================
   Widget _miniatura(Map<String, dynamic> d) {
     final List imagenes = d['imagenesBase64'] ?? [];
 
@@ -296,115 +274,241 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
     return const Icon(Icons.image_not_supported);
   }
 
-  // ================= DIÁLOGO =================
-  void _detalleConCarrusel(BuildContext context, Map<String, dynamic> d) {
-    final List imagenes = d['imagenesBase64'] ?? [];
-    final PageController controller = PageController();
-    int paginaActual = 0;
+  // ================= DETALLE MEJORADO =================
+ void _detalleConCarrusel(BuildContext context, Map<String, dynamic> d) {
 
-    showDialog(
-      context: context,
-      builder: (_) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return Dialog(
-              backgroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+  final List imagenes = d['imagenesBase64'] ?? [];
+  final PageController controller = PageController();
+  int paginaActual = 0;
+
+  showDialog(
+    context: context,
+    builder: (_) {
+      return StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return Dialog(
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(25),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+                maxWidth: 430,
               ),
-              child: SizedBox(
-                width: 420,
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
+              child: Column(
+                children: [
 
+                  // ================= HEADER =================
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: const BoxDecoration(
+                      color: azulDiicsa,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(25),
+                        topRight: Radius.circular(25),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
                         Text(
                           d['codigoInterno'] ?? '',
                           style: const TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-
-                        const SizedBox(height: 20),
-
-                        if (imagenes.isNotEmpty)
-                          SizedBox(
-                            height: 260,
-                            child: PageView.builder(
-                              controller: controller,
-                              itemCount: imagenes.length,
-                              onPageChanged: (index) {
-                                setStateDialog(() {
-                                  paginaActual = index;
-                                });
-                              },
-                              itemBuilder: (_, index) {
-                                return Image.memory(
-                                  base64Decode(imagenes[index]),
-                                  fit: BoxFit.contain,
-                                );
-                              },
-                            ),
-                          )
-                        else
-                          const SizedBox(
-                            height: 260,
-                            child: Center(
-                              child: Icon(
-                                Icons.image_not_supported,
-                                size: 100,
-                              ),
-                            ),
-                          ),
-
-                        const SizedBox(height: 10),
-
-                        Text('Descripción: ${d['descripcion'] ?? ''}'),
-                        Text('N° Parte: ${d['numeroParte'] ?? '—'}'),
-                        Text('Marca: ${d['marca'] ?? ''}'),
-
-                        if (d.containsKey('anaquel'))
-                          Text(
-                            'Ubicación: Anaquel ${d['anaquel'] ?? '—'} - ${d['seccion'] ?? '—'}',
-                          ),
-
-                        if (d.containsKey('organizador'))
-                          Text(
-                            'Ubicación: ${d['organizador'] ?? '—'} - ${d['seccion'] ?? '—'}',
-                          ),
-
-                        const SizedBox(height: 20),
-
+                        const SizedBox(height: 6),
                         Text(
-                          'Existencia: ${d['cantidadDisponible'] ?? 0}',
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          'N° Parte: ${d['numeroParte'] ?? '—'}',
+                          style: const TextStyle(color: Colors.white70),
                         ),
-
-                        const SizedBox(height: 20),
-
-                        ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: azulDiicsa,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size.fromHeight(45),
-                          ),
-                          onPressed: () => Navigator.pop(context),
-                          child: const Text('Cerrar'),
+                        Text(
+                          'Marca: ${d['marca'] ?? '—'}',
+                          style: const TextStyle(color: Colors.white70),
                         ),
                       ],
                     ),
                   ),
-                ),
+
+                  // ================= CONTENIDO SCROLL =================
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+
+                          // ================= IMAGEN =================
+                          if (imagenes.isNotEmpty)
+                            Column(
+                              children: [
+                                SizedBox(
+                                  height: 220,
+                                  child: PageView.builder(
+                                    controller: controller,
+                                    itemCount: imagenes.length,
+                                    onPageChanged: (index) {
+                                      setStateDialog(() {
+                                        paginaActual = index;
+                                      });
+                                    },
+                                    itemBuilder: (_, index) {
+                                      return ClipRRect(
+                                        borderRadius:
+                                            BorderRadius.circular(15),
+                                        child: Image.memory(
+                                          base64Decode(imagenes[index]),
+                                          fit: BoxFit.contain,
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+
+                                const SizedBox(height: 10),
+
+                                Text(
+                                  '${paginaActual + 1} / ${imagenes.length}',
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600),
+                                ),
+
+                                const SizedBox(height: 12),
+
+                                if (imagenes.length > 1)
+                                  SizedBox(
+                                    height: 55,
+                                    child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: imagenes.length,
+                                      itemBuilder: (_, index) {
+                                        return GestureDetector(
+                                          onTap: () {
+                                            controller.jumpToPage(index);
+                                          },
+                                          child: Container(
+                                            margin:
+                                                const EdgeInsets.symmetric(horizontal: 6),
+                                            decoration: BoxDecoration(
+                                              border: Border.all(
+                                                color: paginaActual == index
+                                                    ? azulDiicsa
+                                                    : Colors.grey.shade300,
+                                                width: 2,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                              child: Image.memory(
+                                                base64Decode(imagenes[index]),
+                                                width: 55,
+                                                height: 55,
+                                                fit: BoxFit.cover,
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                              ],
+                            )
+                          else
+                            const Padding(
+                              padding: EdgeInsets.all(40),
+                              child: Icon(
+                                Icons.image_not_supported,
+                                size: 100,
+                                color: Colors.grey,
+                              ),
+                            ),
+
+                          const SizedBox(height: 20),
+
+                          // ================= DESCRIPCIÓN =================
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(15),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Descripción',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  d['descripcion'] ?? '',
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(height: 20),
+
+                          // ================= EXISTENCIA =================
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 18, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              'Existencia: ${d['cantidadDisponible'] ?? 0}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: (d['cantidadDisponible'] ?? 0) <= 0
+                                    ? Colors.red
+                                    : Colors.green.shade700,
+                              ),
+                            ),
+                          ),
+
+                          const SizedBox(height: 25),
+
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: azulDiicsa,
+                                foregroundColor: Colors.white,
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text(
+                                'Cerrar',
+                                style:
+                                    TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 }

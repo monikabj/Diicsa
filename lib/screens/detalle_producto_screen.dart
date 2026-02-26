@@ -20,18 +20,14 @@ class DetalleProductoScreen extends StatefulWidget {
 
 class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
   final ImagePicker _picker = ImagePicker();
-  final PageController _pageController = PageController();
 
   bool cargandoImagen = false;
   int paginaActual = 0;
 
-  // ================== SELECCIONAR IMAGEN ==================
   Future<void> _seleccionarImagen(ImageSource source) async {
     final XFile? imagen =
         await _picker.pickImage(source: source, imageQuality: 60);
     if (imagen == null) return;
-
-    setState(() => cargandoImagen = true);
 
     final bytes = await imagen.readAsBytes();
     final base64Image = base64Encode(bytes);
@@ -46,53 +42,16 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
     List imagenes = List.from(data['imagenesBase64'] ?? []);
 
     if (imagenes.length >= 3) {
-      setState(() => cargandoImagen = false);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Máximo 3 imágenes por producto'),
-        ),
+        const SnackBar(content: Text('Máximo 3 imágenes')),
       );
       return;
     }
 
     imagenes.add(base64Image);
-
     await docRef.update({'imagenesBase64': imagenes});
-
-    setState(() => cargandoImagen = false);
   }
 
-  // ================== OPCIONES ==================
-  void _opcionesImagen() {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Tomar foto'),
-              onTap: () {
-                Navigator.pop(context);
-                _seleccionarImagen(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Elegir de galería'),
-              onTap: () {
-                Navigator.pop(context);
-                _seleccionarImagen(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ================== ELIMINAR IMAGEN ==================
   Future<void> _eliminarImagen(int index, List imagenes) async {
     imagenes.removeAt(index);
 
@@ -103,237 +62,238 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
 
     if (paginaActual >= imagenes.length && paginaActual > 0) {
       paginaActual--;
-      _pageController.jumpToPage(paginaActual);
     }
 
     setState(() {});
   }
 
-  // ================== ELIMINAR PRODUCTO ==================
   Future<void> _eliminarProducto() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Eliminar producto'),
-        content: const Text(
-          'Esta acción no se puede deshacer.\n¿Deseas continuar?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Eliminar'),
-          ),
-        ],
-      ),
-    );
+    await FirebaseFirestore.instance
+        .collection('productos')
+        .doc(widget.docId)
+        .delete();
 
-    if (ok == true) {
-      await FirebaseFirestore.instance
-          .collection('productos')
-          .doc(widget.docId)
-          .delete();
-
-      if (!mounted) return;
-      Navigator.pop(context);
-    }
+    if (!mounted) return;
+    Navigator.pop(context);
   }
 
-  @override
-  void dispose() {
-    _pageController.dispose();
-    super.dispose();
-  }
-
-  // ================== UI ==================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Detalle del producto')),
+      backgroundColor: const Color(0xFFF4F6F9),
+      appBar: AppBar(
+        backgroundColor: azulDiicsa,
+        title: const Text('Detalle del producto'),
+      ),
       body: StreamBuilder<DocumentSnapshot>(
         stream: FirebaseFirestore.instance
             .collection('productos')
             .doc(widget.docId)
             .snapshots(),
         builder: (context, snapshot) {
+
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
-          }
-
-          if (!snapshot.data!.exists) {
-            return const Center(
-              child: Text('Este producto ya fue eliminado'),
-            );
           }
 
           final data =
               snapshot.data!.data() as Map<String, dynamic>;
 
+          final existencia = data['cantidadDisponible'] ?? 0;
           List imagenes = List.from(data['imagenesBase64'] ?? []);
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
 
-              // ================== IMÁGENES ==================
-              Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              // ================= HEADER =================
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: azulDiicsa,
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 12),
+                    Text(
+                      data['codigoInterno'] ?? '',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      data['descripcion'] ?? '',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-                    if (imagenes.isNotEmpty)
-                      Column(
-                        children: [
+              const SizedBox(height: 20),
 
-                          // ===== Imagen grande =====
-                          SizedBox(
-                            height: 300,
-                            child: PageView.builder(
-                              controller: _pageController,
-                              itemCount: imagenes.length,
-                              onPageChanged: (index) {
-                                setState(() => paginaActual = index);
-                              },
-                              itemBuilder: (_, index) {
-                                return Center(
-                                  child: Image.memory(
-                                    base64Decode(imagenes[index]),
-                                    height: 260,
-                                    fit: BoxFit.contain,
-                                  ),
-                                );
-                              },
-                            ),
+              // ================= EXISTENCIA =================
+              Card(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.inventory_2,
+                          size: 40,
+                          color: azulDiicsa),
+                      const SizedBox(height: 10),
+                      Text(
+                        '$existencia',
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Existencia actual',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ================= IMÁGENES =================
+              Card(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+
+                      // IMAGEN PRINCIPAL
+                      if (imagenes.isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.memory(
+                            base64Decode(imagenes[paginaActual]),
+                            height: 260,
+                            fit: BoxFit.contain,
                           ),
+                        )
+                      else
+                        const Icon(Icons.image_not_supported, size: 120),
 
-                          const SizedBox(height: 8),
+                      const SizedBox(height: 16),
 
-                          Text(
-                            '${paginaActual + 1} / ${imagenes.length}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600),
-                          ),
+                      // MINIATURAS
+                      if (imagenes.length > 1)
+                        SizedBox(
+                          height: 70,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: imagenes.length,
+                            itemBuilder: (context, index) {
+                              final seleccionada =
+                                  index == paginaActual;
 
-                          const SizedBox(height: 10),
-
-                          // ===== Miniaturas =====
-                          SizedBox(
-                            height: 70,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: imagenes.length,
-                              itemBuilder: (_, index) {
-                                return GestureDetector(
-                                  onTap: () {
-                                    _pageController.jumpToPage(index);
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: paginaActual == index
-                                            ? azulDiicsa
-                                            : Colors.grey.shade300,
-                                        width: 2,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
+                              return GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    paginaActual = index;
+                                  });
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 6),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: seleccionada
+                                          ? azulDiicsa
+                                          : Colors.grey.shade300,
+                                      width: seleccionada ? 2 : 1,
                                     ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
                                     child: Image.memory(
                                       base64Decode(imagenes[index]),
-                                      width: 60,
-                                      height: 60,
+                                      width: 70,
+                                      height: 70,
                                       fit: BoxFit.cover,
                                     ),
                                   ),
-                                );
-                              },
-                            ),
+                                ),
+                              );
+                            },
                           ),
+                        ),
 
-                          const SizedBox(height: 10),
+                      const SizedBox(height: 16),
 
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.add_a_photo),
-                                onPressed:
-                                    cargandoImagen ? null : _opcionesImagen,
-                              ),
-                              const SizedBox(width: 16),
-                              IconButton(
-                                icon: const Icon(Icons.delete,
-                                    color: Colors.red),
-                                onPressed: () =>
-                                    _eliminarImagen(paginaActual, imagenes),
-                              ),
-                            ],
+                      // BOTONES
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.add_a_photo),
+                            onPressed: () =>
+                                _seleccionarImagen(ImageSource.gallery),
+                          ),
+                          const SizedBox(width: 20),
+                          IconButton(
+                            icon: const Icon(Icons.delete,
+                                color: Colors.red),
+                            onPressed: imagenes.isEmpty
+                                ? null
+                                : () => _eliminarImagen(
+                                    paginaActual, imagenes),
                           ),
                         ],
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.image_not_supported,
-                              size: 120,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(height: 12),
-                            IconButton(
-                              icon: const Icon(Icons.add_a_photo),
-                              onPressed: _opcionesImagen,
-                            ),
-                          ],
-                        ),
                       ),
+                    ],
+                  ),
+                ),
+              ),
 
-                    const SizedBox(height: 12),
-                  ],
+              const SizedBox(height: 20),
+
+              // ================= INFO =================
+              Card(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _filaInfo(Icons.confirmation_number,
+                          'Número de parte',
+                          data['numeroParte'] ?? '—'),
+                      _filaInfo(Icons.business, 'Marca',
+                          data['marca'] ?? '—'),
+                      _filaInfo(Icons.location_on, 'Ubicación',
+                          'Anaquel ${data['anaquel'] ?? '—'} · Sección ${data['seccion'] ?? '—'}'),
+                    ],
+                  ),
                 ),
               ),
 
               const SizedBox(height: 24),
 
-              Text(
-                data['codigoInterno'],
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                data['descripcion'],
-                style: const TextStyle(color: Colors.black54),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Existencia: ${data['cantidadDisponible']}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-    
-
-              const SizedBox(height: 32),
-
               ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
                   backgroundColor: azulDiicsa,
                   foregroundColor: Colors.white,
-                  minimumSize: const Size.fromHeight(48),
+                  minimumSize: const Size.fromHeight(50),
                 ),
                 icon: const Icon(Icons.edit),
                 label: const Text('Editar producto'),
@@ -341,9 +301,8 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => EditarProductoScreen(
-                        docId: widget.docId,
-                      ),
+                      builder: (_) =>
+                          EditarProductoScreen(docId: widget.docId),
                     ),
                   );
                 },
@@ -391,9 +350,7 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
                 ],
               ),
 
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               TextButton.icon(
                 icon: const Icon(Icons.delete, color: Colors.red),
@@ -406,6 +363,23 @@ class _DetalleProductoScreenState extends State<DetalleProductoScreen> {
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _filaInfo(
+      IconData icon, String titulo, String valor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: azulDiicsa),
+          const SizedBox(width: 10),
+          Expanded(child: Text(titulo)),
+          Text(valor,
+              style:
+                  const TextStyle(fontWeight: FontWeight.w600)),
+        ],
       ),
     );
   }

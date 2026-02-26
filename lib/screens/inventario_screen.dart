@@ -13,6 +13,7 @@ class InventarioScreen extends StatefulWidget {
 
 class _InventarioScreenState extends State<InventarioScreen> {
   String filtro = '';
+
   Stream<QuerySnapshot> _productosStream() {
     return FirebaseFirestore.instance
         .collection('productos')
@@ -23,6 +24,7 @@ class _InventarioScreenState extends State<InventarioScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(title: const Text('Inventario')),
       floatingActionButton: FloatingActionButton(
         backgroundColor: azulDiicsa,
@@ -42,27 +44,30 @@ class _InventarioScreenState extends State<InventarioScreen> {
     );
   }
 
+  // ================= BUSCADOR =================
   Widget _buscador() {
     return Padding(
       padding: const EdgeInsets.all(12),
       child: TextField(
         decoration: const InputDecoration(
-          hintText: 'Buscar',
+          hintText: 'Buscar producto',
           prefixIcon: Icon(Icons.search),
         ),
         onChanged: (value) {
           setState(() {
-            filtro = value.toLowerCase();
+            filtro = value.toLowerCase().trim();
           });
         },
       ),
     );
   }
-  
+
+  // ================= LISTA =================
   Widget _listaProductos() {
     return StreamBuilder<QuerySnapshot>(
       stream: _productosStream(),
       builder: (context, snapshot) {
+
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
@@ -70,15 +75,17 @@ class _InventarioScreenState extends State<InventarioScreen> {
         final docs = snapshot.data!.docs.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
 
-          final codigo = data['codigoInterno'].toString().toLowerCase();
-          final desc = data['descripcion'].toString().toLowerCase();
+          final codigo =
+              (data['codigoInterno'] ?? '').toString().toLowerCase();
+          final desc =
+              (data['descripcion'] ?? '').toString().toLowerCase();
           final marca =
               (data['marca'] ?? '').toString().toLowerCase();
           final anaquel =
-              data['anaquel'].toString().toLowerCase();
+              (data['anaquel'] ?? '').toString().toLowerCase();
           final seccion =
-              data['seccion'].toString().toLowerCase();
-              final numeroParte =
+              (data['seccion'] ?? '').toString().toLowerCase();
+          final numeroParte =
               (data['numeroParte'] ?? '').toString().toLowerCase();
 
           return codigo.contains(filtro) ||
@@ -87,7 +94,6 @@ class _InventarioScreenState extends State<InventarioScreen> {
               anaquel.contains(filtro) ||
               seccion.contains(filtro) ||
               numeroParte.contains(filtro);
-
         }).toList();
 
         if (docs.isEmpty) {
@@ -106,19 +112,23 @@ class _InventarioScreenState extends State<InventarioScreen> {
               child: ListTile(
                 leading: const Icon(Icons.inventory_2),
                 title: Text(
-                  data['codigoInterno'],
+                  data['codigoInterno'] ?? '',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 subtitle: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(data['descripcion']),
+                    Text(data['descripcion'] ?? ''),
+                    Text(
+                      'N° Parte: ${data['numeroParte'] ?? '—'}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
                     Text(
                       'Marca: ${data['marca'] ?? '—'}',
                       style: const TextStyle(fontSize: 12),
                     ),
                     Text(
-                      'Ubicación: Anaquel ${data['anaquel']} · Sección ${data['seccion']}',
+                      'Ubicación: Anaquel ${data['anaquel'] ?? '—'} · Sección ${data['seccion'] ?? '—'}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: Colors.grey,
@@ -127,7 +137,7 @@ class _InventarioScreenState extends State<InventarioScreen> {
                   ],
                 ),
                 trailing: Text(
-                  data['cantidadDisponible'].toString(),
+                  (data['cantidadDisponible'] ?? 0).toString(),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                   ),

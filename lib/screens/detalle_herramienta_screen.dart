@@ -30,7 +30,6 @@ class _DetalleHerramientaScreenState
   bool cargandoImagen = false;
   int paginaActual = 0;
 
-  // ================= AGREGAR IMAGEN =================
   Future<void> _agregarImagen(ImageSource source) async {
     final XFile? imagen =
         await _picker.pickImage(source: source, imageQuality: 60);
@@ -70,7 +69,6 @@ class _DetalleHerramientaScreenState
     setState(() => cargandoImagen = false);
   }
 
-  // ================= OPCIONES =================
   void _opcionesImagen() {
     showModalBottomSheet(
       context: context,
@@ -100,7 +98,6 @@ class _DetalleHerramientaScreenState
     );
   }
 
-  // ================= ELIMINAR IMAGEN =================
   Future<void> _eliminarImagen(int index, List imagenes) async {
     imagenes.removeAt(index);
 
@@ -119,7 +116,6 @@ class _DetalleHerramientaScreenState
     setState(() {});
   }
 
-  // ================= ELIMINAR HERRAMIENTA =================
   Future<void> _eliminarHerramienta() async {
     final ok = await showDialog<bool>(
       context: context,
@@ -161,10 +157,10 @@ class _DetalleHerramientaScreenState
     super.dispose();
   }
 
-  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF4F6F9),
       appBar: AppBar(
         title: const Text('Detalle de herramienta'),
         backgroundColor: azulDiicsa,
@@ -175,6 +171,7 @@ class _DetalleHerramientaScreenState
             .doc(widget.docId)
             .snapshots(),
         builder: (context, snapshot) {
+
           if (!snapshot.hasData) {
             return const Center(
                 child: CircularProgressIndicator());
@@ -183,161 +180,224 @@ class _DetalleHerramientaScreenState
           final data =
               snapshot.data!.data() as Map<String, dynamic>;
 
+          final existencia = data['cantidadDisponible'] ?? 0;
           List imagenes = List.from(data['imagenesBase64'] ?? []);
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
 
-              // ================= IMÁGENES =================
-              Card(
-                elevation: 3,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              // ================= HEADER DASHBOARD =================
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: azulDiicsa,
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-
-                    const SizedBox(height: 12),
-
-                    if (imagenes.isNotEmpty)
-                      Column(
-                        children: [
-
-                          SizedBox(
-                            height: 300,
-                            child: PageView.builder(
-                              controller: _pageController,
-                              itemCount: imagenes.length,
-                              onPageChanged: (index) {
-                                setState(() => paginaActual = index);
-                              },
-                              itemBuilder: (_, index) {
-                                return Center(
-                                  child: Image.memory(
-                                    base64Decode(imagenes[index]),
-                                    height: 260,
-                                    fit: BoxFit.contain,
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-
-                          const SizedBox(height: 8),
-
-                          Text(
-                            '${paginaActual + 1} / ${imagenes.length}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600),
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          SizedBox(
-                            height: 70,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: imagenes.length,
-                              itemBuilder: (_, index) {
-                                return GestureDetector(
-                                  onTap: () {
-                                    _pageController.jumpToPage(index);
-                                  },
-                                  child: Container(
-                                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                                    decoration: BoxDecoration(
-                                      border: Border.all(
-                                        color: paginaActual == index
-                                            ? azulDiicsa
-                                            : Colors.grey.shade300,
-                                        width: 2,
-                                      ),
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                    child: Image.memory(
-                                      base64Decode(imagenes[index]),
-                                      width: 60,
-                                      height: 60,
-                                      fit: BoxFit.cover,
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-
-                          const SizedBox(height: 10),
-
-                          Row(
-                            mainAxisAlignment:
-                                MainAxisAlignment.center,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.add_a_photo),
-                                onPressed: cargandoImagen
-                                    ? null
-                                    : _opcionesImagen,
-                              ),
-                              const SizedBox(width: 16),
-                              IconButton(
-                                icon: const Icon(Icons.delete,
-                                    color: Colors.red),
-                                onPressed: () =>
-                                    _eliminarImagen(
-                                        paginaActual, imagenes),
-                              ),
-                            ],
-                          ),
-                        ],
-                      )
-                    else
-                      Padding(
-                        padding: const EdgeInsets.all(40),
-                        child: Column(
-                          children: [
-                            const Icon(
-                              Icons.handyman,
-                              size: 120,
-                              color: Colors.grey,
-                            ),
-                            const SizedBox(height: 12),
-                            IconButton(
-                              icon:
-                                  const Icon(Icons.add_a_photo),
-                              onPressed: _opcionesImagen,
-                            ),
-                          ],
-                        ),
+                    Text(
+                      data['codigoInterno'],
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
                       ),
-
-                    const SizedBox(height: 12),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      data['descripcion'],
+                      style: const TextStyle(
+                        color: Colors.white70,
+                      ),
+                    ),
                   ],
                 ),
               ),
 
-              const SizedBox(height: 24),
+              const SizedBox(height: 20),
 
-              Text(
-                data['codigoInterno'],
-                style: const TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold),
+              // ================= CARD EXISTENCIA =================
+              Card(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      const Icon(Icons.handyman,
+                          size: 40,
+                          color: azulDiicsa),
+                      const SizedBox(height: 10),
+                      Text(
+                        '$existencia',
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Herramientas disponibles',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              const SizedBox(height: 6),
-              Text(data['descripcion']),
-              const SizedBox(height: 8),
-              Text('Marca: ${data['marca']}'),
-              Text('Organizador: ${data['organizador']}'),
-              Text('Sección: ${data['seccion']}'),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
-              Text(
-                'Existencia: ${data['cantidadDisponible']}',
-                style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold),
+              // ================= IMÁGENES =================
+              Card(
+                elevation: 3,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Column(
+                    children: [
+
+                      const SizedBox(height: 12),
+
+                      if (imagenes.isNotEmpty)
+                        Column(
+                          children: [
+
+                            SizedBox(
+                              height: 280,
+                              child: PageView.builder(
+                                controller: _pageController,
+                                itemCount: imagenes.length,
+                                onPageChanged: (index) {
+                                  setState(() => paginaActual = index);
+                                },
+                                itemBuilder: (_, index) {
+                                  return Center(
+                                    child: Image.memory(
+                                      base64Decode(imagenes[index]),
+                                      height: 250,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(height: 8),
+
+                            Text(
+                              '${paginaActual + 1} / ${imagenes.length}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600),
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            SizedBox(
+                              height: 70,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: imagenes.length,
+                                itemBuilder: (_, index) {
+                                  return GestureDetector(
+                                    onTap: () {
+                                      _pageController.jumpToPage(index);
+                                    },
+                                    child: Container(
+                                      margin: const EdgeInsets.symmetric(horizontal: 6),
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: paginaActual == index
+                                              ? azulDiicsa
+                                              : Colors.grey.shade300,
+                                          width: 2,
+                                        ),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Image.memory(
+                                        base64Decode(imagenes[index]),
+                                        width: 60,
+                                        height: 60,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+
+                            const SizedBox(height: 10),
+
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.center,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.add_a_photo),
+                                  onPressed: cargandoImagen
+                                      ? null
+                                      : _opcionesImagen,
+                                ),
+                                const SizedBox(width: 16),
+                                IconButton(
+                                  icon: const Icon(Icons.delete,
+                                      color: Colors.red),
+                                  onPressed: () =>
+                                      _eliminarImagen(
+                                          paginaActual, imagenes),
+                                ),
+                              ],
+                            ),
+                          ],
+                        )
+                      else
+                        Padding(
+                          padding: const EdgeInsets.all(40),
+                          child: Column(
+                            children: [
+                              const Icon(
+                                Icons.handyman,
+                                size: 120,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 12),
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.add_a_photo),
+                                onPressed: _opcionesImagen,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                      const SizedBox(height: 12),
+                    ],
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // ================= INFO CARD =================
+              Card(
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      _infoRow('Marca', data['marca']),
+                      _infoRow('Organizador', data['organizador']),
+                      _infoRow('Sección', data['seccion']),
+                    ],
+                  ),
+                ),
               ),
 
               const SizedBox(height: 28),
@@ -435,6 +495,29 @@ class _DetalleHerramientaScreenState
             ],
           );
         },
+      ),
+    );
+  }
+
+  Widget _infoRow(String titulo, String valor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Text(
+            titulo,
+            style: const TextStyle(
+              color: Colors.black54,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            valor,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
