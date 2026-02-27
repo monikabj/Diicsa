@@ -122,7 +122,7 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
       child: TextField(
         decoration: const InputDecoration(
           hintText:
-              'Buscar producto',
+              'Buscar productos',
           prefixIcon: Icon(Icons.search),
         ),
         onChanged: (v) {
@@ -177,14 +177,28 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
                   d['codigoInterno'] ?? '',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Text(d['descripcion'] ?? ''),
-                trailing: Text(
-                  existencia.toString(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: existencia <= 0 ? Colors.red : Colors.black,
-                  ),
-                ),
+                subtitle: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Text(d['descripcion'] ?? ''),
+    const SizedBox(height: 4),
+    Text(
+      'N° Parte: ${d['numeroParte'] ?? '—'}',
+      style: const TextStyle(
+        fontSize: 12,
+        color: Colors.black54,
+      ),
+    ),
+    Text(
+      'Marca: ${d['marca'] ?? '—'}',
+      style: const TextStyle(
+        fontSize: 12,
+        color: Colors.black54,
+      ),
+    ),
+  ],
+     ),
                 onTap: () => _detalleConCarrusel(context, d),
               ),
             );
@@ -239,14 +253,28 @@ class _TrabajadorHomeScreenState extends State<TrabajadorHomeScreen>
                   d['codigoInterno'] ?? '',
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
-                subtitle: Text(d['descripcion'] ?? ''),
-                trailing: Text(
-                  existencia.toString(),
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: existencia <= 0 ? Colors.red : Colors.black,
-                  ),
-                ),
+                subtitle: Column(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    Text(d['descripcion'] ?? ''),
+    const SizedBox(height: 4),
+    Text(
+      'N° Parte: ${d['numeroParte'] ?? '—'}',
+      style: const TextStyle(
+        fontSize: 12,
+        color: Colors.black54,
+      ),
+    ),
+    Text(
+      'Marca: ${d['marca'] ?? '—'}',
+      style: const TextStyle(
+        fontSize: 12,
+        color: Colors.black54,
+      ),
+    ),
+  ],
+),
                 onTap: () => _detalleConCarrusel(context, d),
               ),
             );
