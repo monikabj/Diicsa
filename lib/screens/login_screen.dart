@@ -18,7 +18,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _auth = AuthService();
 
   bool loading = false;
-  bool _verPassword = false; // 👁️ ojito
+  bool _verPassword = false;
 
   static const Color azulDiicsa = Color(0xFF1F4E79);
 

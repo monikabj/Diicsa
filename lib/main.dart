@@ -1,7 +1,7 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-
 import 'auth_gate.dart';
 import 'screens/herramientas_screen.dart';
 import 'screens/usuarios_screen.dart';
@@ -17,11 +17,13 @@ import 'screens/crear_trabajador_screen.dart';
 import 'screens/historial_movimientos.dart';
 import 'screens/historial_movimientos_herramienta_screen.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await FirebaseAuth.instance.setPersistence(Persistence.NONE); 
   runApp(const MyApp());
 }
 
@@ -32,7 +34,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'DIICSA',
+      title: 'DIICSA ALMACEN',
 
       theme: ThemeData(
         useMaterial3: true,
@@ -43,9 +45,8 @@ class MyApp extends StatelessWidget {
         ),
       ),
 
-      // 🔐 CONTROL TOTAL DE SESIÓN
+      // CONTROL TOTAL DE SESIÓN
       home: const AuthGate(),
-
       routes: {
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(), // ADMIN
@@ -58,8 +59,6 @@ class MyApp extends StatelessWidget {
         '/historial-movimientos': (context) => const HistorialMovimientosScreen(),
         '/herramientas': (context) => const HerramientasScreen(),
         '/historial-herramientas': (_) => const HistorialMovimientosHerramientasScreen(),
-
-
       },
 
       onGenerateRoute: (settings) {
