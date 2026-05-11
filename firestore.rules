@@ -1,0 +1,225 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    // 🔐 FUNCIONES HELPER
+    // ============================================================
+    
+    /// Verifica si el usuario está autenticado
+    function estaAutenticado() {
+      return request.auth != null;
+    }
+
+    /// Obtiene el documento del usuario autenticado
+    function obtenerUsuario() {
+      return get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data;
+    }
+
+    /// Verifica si el usuario es admin
+    function esAdmin() {
+      return estaAutenticado() && obtenerUsuario().rol == 'admin';
+    }
+
+    /// Verifica si el usuario es trabajador
+    function esTrabajador() {
+      return estaAutenticado() && obtenerUsuario().rol == 'trabajador';
+    }
+
+    /// Verifica si el usuario está activo
+    function estaActivo() {
+      return estaAutenticado() && obtenerUsuario().activo == true;
+    }
+
+    /// Verifica que el usuario no esté bloqueado
+    function noEstaBloqueado() {
+      return estaAutenticado() && obtenerUsuario().bloqueado == false;
+    }
+
+    /// Verifica autenticación + activo + no bloqueado
+    function tieneAcceso() {
+      return estaActivo() && noEstaBloqueado();
+    }
+
+    // ============================================================
+    // 📋 COLECCIÓN: USUARIOS
+    // ============================================================
+    
+    match /usuarios/{uid} {
+      // Leer: Admin puede ver todos; usuario solo se ve a sí mismo
+      allow read: if esAdmin() || request.auth.uid == uid;
+      
+      // Crear: Solo admin (en la app)
+      allow create: if esAdmin();
+      
+      // Actualizar: 
+      // - Admin puede actualizar a cualquiera
+      // - Usuario solo puede actualizar su nombre/contraseña (no rol/activo)
+      allow update: if 
+        (esAdmin()) || 
+        (request.auth.uid == uid && 
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rol', 'activo', 'bloqueado', 'intentosFallidos']));
+      
+      // Eliminar: Solo admin
+      allow delete: if esAdmin();
+    }
+
+    // ============================================================
+    // 📦 COLECCIÓN: PRODUCTOS
+    // ============================================================
+    
+    match /productos/{docId} {
+      // Leer: Todos los autenticados y activos pueden ver productos
+      allow read: if tieneAcceso();
+      
+      // Crear: Solo admin
+      allow create: if esAdmin() && tieneAcceso() && 
+        request.resource.data.codigoInterno != null &&
+        request.resource.data.descripcion != null &&
+        request.resource.data.marca != null &&
+        request.resource.data.cantidadDisponible is number &&
+        request.resource.data.cantidadDisponible >= 0;
+      
+      // Actualizar: 
+      // - Admin: puede actualizar cualquier campo
+      // - Trabajador: solo puede actualizar cantidad (mediante entrada/salida)
+      allow update: if tieneAcceso() && (
+        (esAdmin()) ||
+        (esTrabajador() && 
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['codigoInterno', 'marca', 'anaquel', 'seccion', 'numeroParte']))
+      );
+      
+      // Eliminar: Solo admin
+      allow delete: if esAdmin() && tieneAcceso();
+
+      // =============== SUBCOLECIÓN: IMÁGENES ===============
+      match /imagenes/{imagenId} {
+        allow read: if tieneAcceso();
+        allow create: if esAdmin() && tieneAcceso();
+        allow delete: if esAdmin() && tieneAcceso();
+      }
+    }
+
+    // ============================================================
+    // 🔄 COLECCIÓN: MOVIMIENTOS (Entrada/Salida Productos)
+    // ============================================================
+    
+    match /movimientos/{docId} {
+      // Leer: Todos los autenticados y activos
+      allow read: if tieneAcceso();
+      
+      // Crear: Todos (trabajador + admin)
+      allow create: if tieneAcceso() &&
+        request.resource.data.productoId != null &&
+        request.resource.data.cantidad is number &&
+        request.resource.data.cantidad > 0 &&
+        request.resource.data.tipo in ['entrada', 'salida'] &&
+        request.resource.data.usuarioEmail == request.auth.token.email;
+      
+      // Actualizar: Solo admin puede modificar (correcciones)
+      allow update: if esAdmin() && tieneAcceso();
+      
+      // Eliminar: Solo admin (para correcciones)
+      allow delete: if esAdmin() && tieneAcceso();
+    }
+
+    // ============================================================
+    // 🔧 COLECCIÓN: HERRAMIENTAS
+    // ============================================================
+    
+    match /herramientas/{docId} {
+      // Leer: Todos los autenticados y activos
+      allow read: if tieneAcceso();
+      
+      // Crear: Solo admin
+      allow create: if esAdmin() && tieneAcceso() &&
+        request.resource.data.codigoInterno != null &&
+        request.resource.data.descripcion != null &&
+        request.resource.data.cantidadDisponible is number &&
+        request.resource.data.cantidadDisponible >= 0;
+      
+      // Actualizar: Admin y trabajador (cantidad mediante movimientos)
+      allow update: if tieneAcceso() && (
+        (esAdmin()) ||
+        (esTrabajador() && 
+         !request.resource.data.diff(resource.data).affectedKeys().hasAny(['codigoInterno', 'marca', 'organizador', 'seccion']))
+      );
+      
+      // Eliminar: Solo admin
+      allow delete: if esAdmin() && tieneAcceso();
+    }
+
+    // ============================================================
+    // 🚚 COLECCIÓN: MOVIMIENTOS_HERRAMIENTAS
+    // ============================================================
+    
+    match /movimientos_herramientas/{docId} {
+      // Leer: Todos los autenticados
+      allow read: if tieneAcceso();
+      
+      // Crear: Trabajador y admin (entrega/recepción)
+      allow create: if tieneAcceso() &&
+        request.resource.data.herramientaId != null &&
+        request.resource.data.tipo in ['entrega', 'recepcion'] &&
+        request.resource.data.cantidad is number &&
+        request.resource.data.cantidad > 0 &&
+        request.resource.data.personaResponsable != null;
+      
+      // Actualizar: Solo admin (para correcciones)
+      allow update: if esAdmin() && tieneAcceso();
+      
+      // Eliminar: Solo admin
+      allow delete: if esAdmin() && tieneAcceso();
+    }
+
+    // ============================================================
+    // 📊 COLECCIÓN: REPORTES
+    // ============================================================
+    
+    match /reportes/{docId} {
+      // Leer: Admin puede leer; trabajadores pueden ver los suyos
+      allow read: if tieneAcceso() && (
+        esAdmin() || 
+        resource.data.createdBy == request.auth.uid
+      );
+      
+      // Crear: Todos
+      allow create: if tieneAcceso() &&
+        request.resource.data.tipo != null &&
+        request.resource.data.createdBy == request.auth.uid;
+      
+      // Actualizar: Solo el que lo creó o admin
+      allow update: if tieneAcceso() && (
+        esAdmin() || 
+        resource.data.createdBy == request.auth.uid
+      );
+      
+      // Eliminar: Solo admin
+      allow delete: if esAdmin() && tieneAcceso();
+    }
+
+    // ============================================================
+    // 📝 COLECCIÓN: AUDITORÍA
+    // ============================================================
+    
+    match /auditoria/{docId} {
+      // Leer: Solo admin
+      allow read: if esAdmin() && tieneAcceso();
+      
+      // Crear: Automático (desde backend)
+      allow create: if false; // Controlado desde backend
+      
+      // Actualizar/Eliminar: No permitido
+      allow update, delete: if false;
+    }
+
+    // ============================================================
+    // 🚫 DENEGACIÓN POR DEFECTO
+    // ============================================================
+    
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+  }
+}
